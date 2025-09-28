@@ -38,8 +38,10 @@
     <div class="container">
         <h1>Your 8-Puzzle</h1>
         <div class="grid" id="puzzle-grid">
-            {% for r, row in enumerate(puzzle_matrix) %}
-                {% for c, tile in enumerate(row) %}
+            {% for row in puzzle_matrix %}
+                {% set r = loop.index0 %}
+                {% for tile in row %}
+                    {% set c = loop.index0 %}
                     <div class="tile {% if tile == 0 %}blank{% endif %}" data-pos="{{ r }}-{{ c }}" data-tile="{{ tile }}">
                         {% if tile != 0 %}
                             <img src="{{ url_for('static', filename='tiles/' ~ tile_map[tile]) }}" alt="Tile {{ tile }}">
