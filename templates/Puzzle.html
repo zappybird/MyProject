@@ -37,7 +37,7 @@
 <body>
     <div class="container">
         <h1>Your 8-Puzzle</h1>
-        <div class="grid" id="puzzle-grid">
+    <div class="grid" id="puzzle-grid" data-tile-map='{{ tile_map|tojson|safe }}' data-tile-base='{{ url_for('static', filename='tiles/') }}'>
             {% for row in puzzle_matrix %}
                 {% set r = loop.index0 %}
                 {% for tile in row %}
@@ -73,11 +73,21 @@
         </form>
     </div>
     <script>
+        // Read embedded tile_map and base URL from data attributes to avoid linter issues
+        function readEmbeddedTileMap(grid){
+            try{
+                var raw = grid.getAttribute('data-tile-map') || '{}';
+                return JSON.parse(raw);
+            }catch(e){ return {}; }
+        }
+        function readTileBase(grid){
+            return grid.getAttribute('data-tile-base') || '/static/tiles/';
+        }
+
         // Click-to-move: when a tile is clicked, POST to /move with the tile value.
         // On success the server returns the new state and tile_map; we patch
         // the DOM accordingly instead of reloading the whole page.
         (function(){
-            function el(sel) { return document.querySelector(sel); }
             var grid = document.getElementById('puzzle-grid');
             if (!grid) return;
 
@@ -100,7 +110,11 @@
                     }
                     // json.state is a 3x3 array with numbers; json.tile_map maps numbers to filenames
                     var state = json.state;
-                    var tile_map = json.tile_map || {};
+                    var serverTileMap = json.tile_map || {};
+                    // Prefer embedded tile map (from server-rendered page) and fall back to server response
+                    var embedded = readEmbeddedTileMap(grid) || {};
+                    var tile_map = Object.keys(embedded).length ? embedded : serverTileMap;
+
                     // update each tile element in the grid
                     var tiles = grid.querySelectorAll('.tile');
                     tiles.forEach(function(el, idx){
@@ -113,13 +127,14 @@
                             if (img) img.remove();
                         } else {
                             el.classList.remove('blank');
+                            // server returns string-keyed tile_map; try both
                             var fname = tile_map[String(val)] || tile_map[val];
+                            var img = el.querySelector('img');
                             if (!fname) {
-                                // no filename known for this tile, remove image
-                                var img = el.querySelector('img'); if (img) img.remove();
+                                // no filename known for this tile, remove image and do not request folder
+                                if (img) img.remove();
                             } else {
-                                var img = el.querySelector('img');
-                                var src = '/static/tiles/' + fname;
+                                var src = readTileBase(grid) + fname;
                                 if (img) {
                                     img.src = src;
                                     img.alt = 'Tile ' + val;
