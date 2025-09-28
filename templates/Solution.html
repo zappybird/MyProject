@@ -22,14 +22,19 @@
                 <button id="play">Play</button>
                 <button id="next">Next</button>
                 <span id="counter">Step 1 / {{ solution_steps|length }}</span>
+                <a href="{{ url_for('puzzle') }}" class="button" style="margin-left:12px;">Back to puzzle</a>
             </div>
-            <div id="player">
+            <div id="player" data-steps='{{ solution_steps|tojson|safe }}' data-tile-map='{{ tile_map|tojson|safe }}' data-tile-base='{{ url_for('static', filename='tiles/') }}'>
                 <!-- player will render a single step -->
             </div>
            <script type="text/javascript">
-    const steps = {{ solution_steps|tojson|safe }};
-    const tileMap = {{ tile_map|tojson|safe }};
-    const tileBaseUrl = "{{ url_for('static', filename='tiles/') }}";
+    function readData(el, key){
+        try{ return JSON.parse(el.getAttribute(key) || 'null'); }catch(e){ return null; }
+    }
+    const playerEl = document.getElementById('player');
+    const steps = readData(playerEl, 'data-steps') || [];
+    const tileMap = readData(playerEl, 'data-tile-map') || {};
+    const tileBaseUrl = playerEl.getAttribute('data-tile-base') || '/static/tiles/';
 
     let idx = 0;
     const player = document.getElementById('player');
