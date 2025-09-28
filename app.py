@@ -200,13 +200,84 @@ def session_debug():
 @app.route('/shuffle', methods=['POST'])
 def shuffle():
     current = session.get('current_state')
-    tile_map = session.get('tile_map')
+    raw_tile_map = session.get('tile_map') or {}
+    try:
+        tile_map = {int(k): v for k, v in raw_tile_map.items()}
+    except Exception:
+        tile_map = raw_tile_map
     if current is None:
         return redirect(url_for('puzzle'))
     # Use valid-move randomization to preserve solvability
     new_state = randomize_state_by_moves(current, moves=50)
     session['current_state'] = new_state
-    return render_template('puzzle.html', puzzle_matrix=new_state, tile_map=tile_map)
+    # Redirect to the canonical /puzzle route so the template rendering
+    # path is consistent (and uses the same conversion logic for tile_map).
+    return redirect(url_for('puzzle'))
+
+
+@app.route('/move', methods=['POST'])
+def move_tile():
+    # Accept JSON or form data with 'tile' value (int)
+    data = request.get_json(silent=True) or request.form
+    try:
+        tile_val = int(data.get('tile'))
+    except Exception:
+        return jsonify({'ok': False, 'error': 'invalid tile value'}), 400
+
+    current = session.get('current_state')
+    if current is None:
+        return jsonify({'ok': False, 'error': 'no puzzle loaded'}), 400
+
+    # find positions
+    flat = [n for row in current for n in row]
+    try:
+        tile_idx = flat.index(tile_val)
+        blank_idx = flat.index(0)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'tile not found'}), 400
+
+    # check adjacency
+    def neighbors_idx(idx):
+        r, c = divmod(idx, 3)
+        res = []
+        for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):
+            nr, nc = r+dr, c+dc
+            if 0 <= nr < 3 and 0 <= nc < 3:
+                res.append(nr*3+nc)
+        return res
+
+    if tile_idx in neighbors_idx(blank_idx):
+        # swap
+        flat[blank_idx], flat[tile_idx] = flat[tile_idx], flat[blank_idx]
+        new_state = [flat[i*3:(i+1)*3] for i in range(3)]
+        session['current_state'] = new_state
+        # return updated state and tile_map for client rendering
+        raw_tile_map = session.get('tile_map') or {}
+        # Return tile_map with string keys to keep JSON stable across browsers
+        tile_map_str_keys = {str(k): v for k, v in raw_tile_map.items()}
+        # Simple move logging for debugging
+        try:
+            log_dir = Path('data')
+            log_dir.mkdir(exist_ok=True)
+            with open(log_dir / 'move_logs.txt', 'a', encoding='utf-8') as lf:
+                lf.write(json.dumps({'tile': tile_val, 'result_state': new_state}) + '\n')
+        except Exception:
+            pass
+        return jsonify({'ok': True, 'state': new_state, 'tile_map': tile_map_str_keys})
+    else:
+        return jsonify({'ok': False, 'error': 'tile not adjacent to blank'}), 400
+
+
+@app.route('/state')
+def get_state():
+    """Return the current puzzle state and tile_map as JSON (tile_map uses string keys).
+
+    Useful for client-side sanity checks after navigation or shuffle.
+    """
+    cur = session.get('current_state')
+    raw_tile_map = session.get('tile_map') or {}
+    tile_map_str = {str(k): v for k, v in raw_tile_map.items()}
+    return jsonify({'state': cur, 'tile_map': tile_map_str})
 
 @app.route('/solve', methods=['POST'])
 def solve():
@@ -235,6 +306,16 @@ def solution():
     except Exception:
         tile_map = raw_tile_map
     return render_template('solution.html', solution_steps=steps, algorithm=algorithm, tile_map=tile_map)
+
+
+@app.route('/move_debug', methods=['POST'])
+def move_debug():
+    """A debugging helper that echoes the request JSON and current session state.
+
+    Use this endpoint when diagnosing client/server interaction issues.
+    """
+    data = request.get_json(silent=True) or {}
+    return jsonify({'received': data, 'session': dict(session)})
 
 # ===== Error Handlers =====
 @app.errorhandler(404)
