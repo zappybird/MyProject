@@ -123,100 +123,11 @@ def load_session_state(session_id: str) -> dict:
     with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
-# ===== Models / Classes =====
-class PuzzleBoard:
-    def __init__(self, state):
-        self.state = [row[:] for row in state]
-
-    def is_goal(self):
-        target = [1,2,3,4,5,6,7,8,0]
-        flat = [n for row in self.state for n in row]
-        return flat == target
-
-class BaseSolver:
-    def __init__(self, board: PuzzleBoard):
-        self.board = board
-
-    def solve(self):
-        return [self.board.state]
-
-class AStarSolver(BaseSolver):
-    def solve(self):
-        return ["A* solver not implemented", self.board.state]
-
-class BFSSolver(BaseSolver):
-    def solve(self):
-        return ["BFS solver not implemented", self.board.state]
-
-class DFSSolver(BaseSolver):
-    def solve(self):
-        return ["DFS solver not implemented", self.board.state]
-
-
-# ===== A* solver for 8-puzzle (returns list of states from start to goal) =====
-import heapq
-
-
-def manhattan_distance(state):
-    flat = [n for row in state for n in row]
-    dist = 0
-    for idx, val in enumerate(flat):
-        if val == 0:
-            continue
-        goal_r, goal_c = divmod(val - 1, 3)
-        r, c = divmod(idx, 3)
-        dist += abs(r - goal_r) + abs(c - goal_c)
-    return dist
-
-
-def board_to_tuple(state):
-    return tuple(n for row in state for n in row)
-
-
-def tuple_to_board(tup):
-    return [list(tup[i * 3:(i + 1) * 3]) for i in range(3)]
-
-
-class AStarSolver(BaseSolver):
-    def solve(self):
-        start = board_to_tuple(self.board.state)
-        goal = board_to_tuple([[1,2,3],[4,5,6],[7,8,0]])
-
-        open_heap = []
-        heapq.heappush(open_heap, (manhattan_distance(self.board.state), 0, start))
-        came_from = {start: None}
-        gscore = {start: 0}
-
-        while open_heap:
-            _, g, current = heapq.heappop(open_heap)
-            if current == goal:
-                # reconstruct path
-                path = []
-                node = current
-                while node is not None:
-                    path.append(tuple_to_board(node))
-                    node = came_from[node]
-                path.reverse()
-                return path
-
-            zero_idx = current.index(0)
-            r, c = divmod(zero_idx, 3)
-            for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):
-                nr, nc = r + dr, c + dc
-                if not (0 <= nr < 3 and 0 <= nc < 3):
-                    continue
-                nidx = nr * 3 + nc
-                lst = list(current)
-                lst[zero_idx], lst[nidx] = lst[nidx], lst[zero_idx]
-                neighbor = tuple(lst)
-                tentative_g = g + 1
-                if neighbor not in gscore or tentative_g < gscore[neighbor]:
-                    gscore[neighbor] = tentative_g
-                    came_from[neighbor] = current
-                    est = tentative_g + manhattan_distance(tuple_to_board(neighbor))
-                    heapq.heappush(open_heap, (est, tentative_g, neighbor))
-
-        return [self.board.state]
+# Use modular solvers from the `puzzle_solver` package for clarity and testability
+from puzzle_solver.astar import AStarSolver
+from puzzle_solver.PuzzleBoard import PuzzleBoard
+from puzzle_solver.bfs import BFSSolver
+from puzzle_solver.dfs import DFSSolver
 
 
 # ===== Routes =====
@@ -303,13 +214,13 @@ def solve():
     if current_state is None:
         return redirect(url_for('puzzle'))
     algorithm = request.form.get('algorithm', 'astar').lower()
-    board = PuzzleBoard(current_state)
+    # modular solvers expect a 3x3 list (not a PuzzleBoard instance)
     if algorithm == 'astar':
-        steps = AStarSolver(board).solve()
+        steps = AStarSolver(current_state).solve()
     elif algorithm == 'bfs':
-        steps = BFSSolver(board).solve()
+        steps = BFSSolver(current_state).solve()
     else:
-        steps = DFSSolver(board).solve()
+        steps = DFSSolver(current_state).solve()
     session['solution_steps'] = steps
     session['algorithm'] = algorithm
     return redirect(url_for('solution'))
@@ -318,7 +229,12 @@ def solve():
 def solution():
     steps = session.get('solution_steps', [])
     algorithm = session.get('algorithm', 'unknown')
-    return render_template('solution.html', solution_steps=steps, algorithm=algorithm)
+    raw_tile_map = session.get('tile_map') or {}
+    try:
+        tile_map = {int(k): v for k, v in raw_tile_map.items()}
+    except Exception:
+        tile_map = raw_tile_map
+    return render_template('solution.html', solution_steps=steps, algorithm=algorithm, tile_map=tile_map)
 
 # ===== Error Handlers =====
 @app.errorhandler(404)

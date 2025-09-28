@@ -4,25 +4,59 @@
     <meta charset="UTF-8">
     <title>Solution Steps</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .grid { display: grid; grid-template-columns: repeat(3, 60px); gap: 6px; }
+        .tile { width:60px; height:60px; border: 2px solid #ccc; box-sizing: border-box; }
+        .tile img { width:100%; height:100%; object-fit:cover; display:block; }
+        .controls { margin-bottom: 12px; }
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>Solution Path</h1>
         <p>Algorithm used: {{ algorithm }}</p>
         {% if solution_steps and solution_steps|length > 0 %}
-            {% for step in solution_steps %}
-                <div class="grid" style="margin-bottom:12px;">
-                    {% for row in step %}
-                        {% for tile in row %}
-                            <div class="tile {% if tile == 0 %}blank{% endif %}" style="width:60px;height:60px;">
-                                {% if tile != 0 %}
-                                    <img src="{{ url_for('static', filename='tiles/' ~ tile_map[tile]) }}" alt="Tile {{ tile }}" style="width:100%;height:100%;object-fit:cover;">
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    {% endfor %}
-                </div>
-            {% endfor %}
+            <div class="controls">
+                <button id="prev">Prev</button>
+                <button id="play">Play</button>
+                <button id="next">Next</button>
+                <span id="counter">Step 1 / {{ solution_steps|length }}</span>
+            </div>
+            <div id="player">
+                <!-- player will render a single step -->
+            </div>
+            <script>
+                const steps = {{ solution_steps|tojson|safe }};
+                const tileMap = {{ tile_map|tojson|safe }};
+                let idx = 0;
+                const player = document.getElementById('player');
+                const counter = document.getElementById('counter');
+                function renderStep(i){
+                    const step = steps[i];
+                    let html = '<div class="grid">';
+                    for(const row of step){
+                        for(const t of row){
+                            html += '<div class="tile">';
+                            if(t !== 0){
+                                html += `<img src="${"{{ url_for('static', filename='tiles/') }}" + tileMap[t]}" />`;
+                            }
+                            html += '</div>';
+                        }
+                    }
+                    html += '</div>';
+                    player.innerHTML = html;
+                    counter.textContent = `Step ${i+1} / ${steps.length}`;
+                }
+                document.getElementById('prev').addEventListener('click', ()=>{ idx = Math.max(0, idx-1); renderStep(idx); });
+                document.getElementById('next').addEventListener('click', ()=>{ idx = Math.min(steps.length-1, idx+1); renderStep(idx); });
+                let playing = false; let timer = null;
+                document.getElementById('play').addEventListener('click', ()=>{
+                    if(playing){ clearInterval(timer); playing=false; document.getElementById('play').textContent='Play'; return; }
+                    playing=true; document.getElementById('play').textContent='Pause';
+                    timer = setInterval(()=>{ idx = (idx+1) % steps.length; renderStep(idx); }, 600);
+                });
+                renderStep(0);
+            </script>
         {% else %}
             <p>No solution steps available.</p>
         {% endif %}
