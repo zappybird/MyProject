@@ -28,31 +28,6 @@ python app.py
 
 3. Open http://127.0.0.1:5000 in your browser.
 
-Notes:
-- The app stores per-session small state in Flask session and slices images into `static/tiles/`.
-- Uploaded tile files are cleaned up when a new upload occurs during the same session. A periodic cleanup
-  may be desirable for production.
-
-Files of interest:
-- `app.py` - Flask app and routes
-- `templates/Puzzle.html` - interactive puzzle UI (click-to-move)
-- `puzzle_solver/` - solver implementations (A*, BFS, DFS)
- 
-Additional notes
-----------------
-
-- Click-to-move: The puzzle UI supports clicking on a tile to move it into the blank if the move is legal. The page updates in-place (no full page reload) so you can play by clicking tiles.
-
-  - Orphaned files can still accumulate if sessions end unexpectedly or previous runs left files behind. To remove all tile files manually (development use only), run this from PowerShell in the project root:
-  
-    ```powershell
-    Get-ChildItem -Path static\tiles -Filter "*_tile_*.png" | Remove-Item -Force
-    ```
-
-Packaging as a standalone executable (optional)
----------------------------------------------
-
-You can bundle this Flask app into a single executable using PyInstaller for easy distribution. The project includes a minimal PowerShell helper script at `tools/build_pyinstaller.ps1` which runs PyInstaller and includes the `templates/` and `static/` folders as data files.
 
 Steps (Windows PowerShell):
 
