@@ -150,6 +150,12 @@ def upload():
     file.save(path)
     # slice with a unique prefix
     tiles = slice_image((path, unique_prefix))
+    # remove the original uploaded file to avoid leaving user photos behind
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
 
     # store state in session (serializable types only)
     puzzle_matrix = [
@@ -179,7 +185,8 @@ def upload():
 
 @app.route('/puzzle')
 def puzzle():
-    puzzle_matrix = session.get('puzzle_matrix')
+    # Prefer the live current_state if present (reflects shuffles & moves)
+    puzzle_matrix = session.get('current_state') or session.get('puzzle_matrix')
     tiles = session.get('tiles')
     raw_tile_map = session.get('tile_map') or {}
     # convert keys back to ints for template convenience
@@ -196,6 +203,18 @@ def puzzle():
 def session_debug():
     """Return the current session as JSON for debugging (safe: session only holds serializable data)."""
     return jsonify(dict(session))
+
+
+@app.route('/cleanup', methods=['POST'])
+def cleanup():
+    """Remove uploaded tile files for this session and clear session keys related to the puzzle.
+
+    This allows users to remove photos after playing. It's best-effort: files are removed if present.
+    """
+    cleanup_old_tiles()
+    for k in ['puzzle_matrix', 'current_state', 'tiles', 'tile_map', 'upload_prefix', 'solution_steps', 'algorithm']:
+        session.pop(k, None)
+    return redirect(url_for('index'))
 
 @app.route('/shuffle', methods=['POST'])
 def shuffle():
