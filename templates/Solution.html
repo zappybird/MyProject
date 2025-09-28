@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Solution Steps</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Solution Path</h1>
+        <p>Algorithm used: {{ algorithm }}</p>
+        {% if solution_steps and solution_steps|length > 0 %}
+            {% for step in solution_steps %}
+                <div class="grid" style="margin-bottom:12px;">
+                    {% for row in step %}
+                        {% for tile in row %}
+                            <div class="tile {% if tile == 0 %}blank{% endif %}" style="width:60px;height:60px;">
+                                {% if tile != 0 %}
+                                    <img src="{{ url_for('static', filename='tiles/' ~ tile_map[tile]) }}" alt="Tile {{ tile }}" style="width:100%;height:100%;object-fit:cover;">
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No solution steps available.</p>
+        {% endif %}
+        <a href="{{ url_for('index') }}">← Try another puzzle</a>
+    </div>
+</body>
+</html>
