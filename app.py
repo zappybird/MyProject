@@ -1,6 +1,7 @@
 
 # ===== Imports =====
 import os
+import sys
 import random
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from PIL import Image, ImageOps
@@ -10,9 +11,20 @@ import json
 from pathlib import Path
 
 # ===== Configuration =====
-app = Flask(__name__)
+# When bundled with PyInstaller the data files (templates/static) are
+# extracted to a temporary folder available at sys._MEIPASS. Detect that
+# so Flask can find templates and static files when running as an exe.
+if getattr(sys, 'frozen', False):
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.abspath(os.path.dirname(__file__))
+
+# Point Flask to the correct template/static folders
+app = Flask(__name__, template_folder=os.path.join(base_path, 'templates'), static_folder=os.path.join(base_path, 'static'))
 app.secret_key = 'your_secret_key'
-UPLOAD_FOLDER = os.path.join('static', 'tiles')
+
+# Upload folder should live under the static tiles folder so it's bundled/accessible
+UPLOAD_FOLDER = os.path.join(app.static_folder, 'tiles')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # ===== Utility Functions =====
@@ -144,10 +156,25 @@ def upload():
     if not file:
         return redirect(url_for('index'))
     filename = secure_filename(file.filename)
+    # basic mime-type guard
+    if not (file.mimetype and file.mimetype.startswith('image')):
+        return redirect(url_for('index'))
     unique_prefix = f"{uuid.uuid4().hex}_"
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(path)
+    path = os.path.join(app.config['UPLOAD_FOLDER'], unique_prefix + filename)
+    # Read bytes, verify with Pillow, then write to disk
+    from io import BytesIO
+    data = file.read()
+    try:
+        img = Image.open(BytesIO(data))
+        img.verify()
+    except Exception:
+        return redirect(url_for('index'))
+    try:
+        with open(path, 'wb') as out:
+            out.write(data)
+    except Exception:
+        return redirect(url_for('index'))
     # slice with a unique prefix
     tiles = slice_image((path, unique_prefix))
     # remove the original uploaded file to avoid leaving user photos behind

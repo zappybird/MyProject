@@ -44,3 +44,44 @@ Additional notes
 - Click-to-move: The puzzle UI supports clicking on a tile to move it into the blank if the move is legal. The page updates in-place (no full page reload) so you can play by clicking tiles.
 
   - Orphaned files can still accumulate if sessions end unexpectedly or previous runs left files behind. To remove all tile files manually (development use only), run this from PowerShell in the project root:
+  
+    ```powershell
+    Get-ChildItem -Path static\tiles -Filter "*_tile_*.png" | Remove-Item -Force
+    ```
+
+Packaging as a standalone executable (optional)
+---------------------------------------------
+
+You can bundle this Flask app into a single executable using PyInstaller for easy distribution. The project includes a minimal PowerShell helper script at `tools/build_pyinstaller.ps1` which runs PyInstaller and includes the `templates/` and `static/` folders as data files.
+
+Steps (Windows PowerShell):
+
+1. Install PyInstaller into your environment:
+
+```powershell
+pip install pyinstaller
+```
+
+2. Run the build helper from the project root in PowerShell:
+
+```powershell
+.\tools\build_pyinstaller.ps1
+```
+
+3. The produced executable will be in `dist\puzzle_app.exe`.
+
+Limitations:
+- The executable is self-contained; however the `static/tiles/` upload directory will be inside the bundled app and is ephemeral at runtime. For production deployment you probably want to run the Flask app under a proper WSGI server rather than packaging into one EXE.
+
+Run locally without packaging:
+
+```powershell
+python -m venv .venv
+# PowerShell
+.\.venv\Scripts\Activate.ps1
+# or cmd.exe
+.\.venv\Scripts\activate.bat
+pip install -r requirements.txt
+.\.venv\Scripts\python.exe app.py
+```
+
