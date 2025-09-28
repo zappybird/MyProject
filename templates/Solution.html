@@ -25,38 +25,52 @@
             <div id="player">
                 <!-- player will render a single step -->
             </div>
-            <script type="text/javascript">
-                const steps = {{ solution_steps|tojson|safe }};
-                const tileMap = {{ tile_map|tojson|safe }};
-                let idx = 0;
-                const player = document.getElementById('player');
-                const counter = document.getElementById('counter');
-                function renderStep(i){
-                    const step = steps[i];
-                    let html = '<div class="grid">';
-                    for(const row of step){
-                        for(const t of row){
-                            html += '<div class="tile">';
-                            if(t !== 0){
-                                html += `<img src="${"{{ url_for('static', filename='tiles/') }}" + tileMap[t]}" />`;
-                            }
-                            html += '</div>';
-                        }
-                    }
-                    html += '</div>';
-                    player.innerHTML = html;
-                    counter.textContent = `Step ${i+1} / ${steps.length}`;
+           <script type="text/javascript">
+    const steps = {{ solution_steps|tojson|safe }};
+    const tileMap = {{ tile_map|tojson|safe }};
+    const tileBaseUrl = "{{ url_for('static', filename='tiles/') }}";
+
+    let idx = 0;
+    const player = document.getElementById('player');
+    const counter = document.getElementById('counter');
+
+    function renderStep(i){
+        const step = steps[i];
+        let html = '<div class="grid">';
+        for(const row of step){
+            for(const t of row){
+                html += '<div class="tile">';
+                if(t !== 0){
+                    html += `<img src="${tileBaseUrl}${tileMap[t]}" />`;
                 }
-                document.getElementById('prev').addEventListener('click', ()=>{ idx = Math.max(0, idx-1); renderStep(idx); });
-                document.getElementById('next').addEventListener('click', ()=>{ idx = Math.min(steps.length-1, idx+1); renderStep(idx); });
-                let playing = false; let timer = null;
-                document.getElementById('play').addEventListener('click', ()=>{
-                    if(playing){ clearInterval(timer); playing=false; document.getElementById('play').textContent='Play'; return; }
-                    playing=true; document.getElementById('play').textContent='Pause';
-                    timer = setInterval(()=>{ idx = (idx+1) % steps.length; renderStep(idx); }, 600);
-                });
-                renderStep(0);
-            </script>
+                html += '</div>';
+            }
+        }
+        html += '</div>';
+        player.innerHTML = html;
+        counter.textContent = `Step ${i+1} / ${steps.length}`;
+    }
+
+    document.getElementById('prev').addEventListener('click', ()=>{ idx = Math.max(0, idx-1); renderStep(idx); });
+    document.getElementById('next').addEventListener('click', ()=>{ idx = Math.min(steps.length-1, idx+1); renderStep(idx); });
+
+    let playing = false;
+    let timer = null;
+    document.getElementById('play').addEventListener('click', ()=>{
+        if(playing){
+            clearInterval(timer);
+            playing = false;
+            document.getElementById('play').textContent = 'Play';
+            return;
+        }
+        playing = true;
+        document.getElementById('play').textContent = 'Pause';
+        timer = setInterval(()=>{ idx = (idx+1) % steps.length; renderStep(idx); }, 600);
+    });
+
+    renderStep(0);
+</script>
+
         {% else %}
             <p>No solution steps available.</p>
         {% endif %}
